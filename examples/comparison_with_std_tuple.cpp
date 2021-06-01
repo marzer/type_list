@@ -7,8 +7,8 @@
 // (https://marzer.github.io/md_blog_2021_05_31_compilation_speed_humps_std_tuple.html)
 
 #include <cstdint>
+#include <cstdio>
 #include <type_traits>
-#include <iostream>
 
 #ifndef USE_STD_TUPLE
 	#define USE_STD_TUPLE 0
@@ -16,7 +16,8 @@
 #if USE_STD_TUPLE
 	#include <tuple>
 #else
-	#include <type_list.h>
+	//#define MZ_HAS_TYPE_PACK_ELEMENT 0 // disables use of __type_pack_element on clang
+	#include <mz/type_list.h>
 #endif
 
 namespace mz
@@ -67,22 +68,18 @@ namespace mz
 
 	namespace impl
 	{
-		template <typename>
+		template <size_t, typename>
 		struct type_list_maker_;
 
-		template <size_t... Seq>
-		struct type_list_maker_<std::index_sequence<Seq...>>
+		template <size_t Start, size_t... Seq>
+		struct type_list_maker_<Start, std::index_sequence<Seq...>>
 		{
-			using type = type_list<index_tag<Seq>...>;
+			using type = type_list<index_tag<Start + Seq>...>;
 		};
 	}
 
-	template <size_t Length>
-	using make_type_list = typename impl::type_list_maker_<std::make_index_sequence<Length>>::type;
-
-	static_assert(std::is_same_v<make_type_list<4>, type_list<index_tag<0>, index_tag<1>, index_tag<2>, index_tag<3>>>);
-	static_assert(std::is_same_v<type_list_select<make_type_list<4>, 2>, index_tag<2>>);
-	static_assert(std::is_same_v<type_list_slice<make_type_list<4>, 0, 2>, type_list<index_tag<0>, index_tag<1>>>);
+	template <size_t Start, size_t Length>
+	using make_type_list = typename impl::type_list_maker_<Start, std::make_index_sequence<Length>>::type;
 
 	namespace impl
 	{
@@ -104,6 +101,30 @@ namespace mz
 		else
 			static_cast<void>(func);
 	}
+
+#if 0 // adapter sanity checks
+
+	static_assert(type_list_length<make_type_list<0, 200>> == 200);
+
+	static_assert(std::is_same_v<type_list_select<make_type_list<0, 200>, 0>, index_tag<0>>);
+	static_assert(std::is_same_v<type_list_select<make_type_list<0, 200>, 5>, index_tag<5>>);
+	static_assert(std::is_same_v<type_list_select<make_type_list<0, 200>, 10>, index_tag<10>>);
+	static_assert(std::is_same_v<type_list_select<make_type_list<0, 200>, 60>, index_tag<60>>);
+	static_assert(std::is_same_v<type_list_select<make_type_list<0, 200>, 70>, index_tag<70>>);
+
+	static_assert(std::is_same_v<type_list_slice<make_type_list<0, 200>, 0, 1>, make_type_list<0, 1>>);
+	static_assert(std::is_same_v<type_list_slice<make_type_list<0, 200>, 5, 1>, make_type_list<5, 1>>);
+	static_assert(std::is_same_v<type_list_slice<make_type_list<0, 200>, 10, 1>, make_type_list<10, 1>>);
+	static_assert(std::is_same_v<type_list_slice<make_type_list<0, 200>, 60, 1>, make_type_list<60, 1>>);
+	static_assert(std::is_same_v<type_list_slice<make_type_list<0, 200>, 70, 1>, make_type_list<70, 1>>);
+
+	static_assert(std::is_same_v<type_list_slice<make_type_list<0, 200>, 0, 5>, make_type_list<0, 5>>);
+	static_assert(std::is_same_v<type_list_slice<make_type_list<0, 200>, 5, 5>, make_type_list<5, 5>>);
+	static_assert(std::is_same_v<type_list_slice<make_type_list<0, 200>, 10, 5>, make_type_list<10, 5>>);
+	static_assert(std::is_same_v<type_list_slice<make_type_list<0, 200>, 60, 5>, make_type_list<60, 5>>);
+	static_assert(std::is_same_v<type_list_slice<make_type_list<0, 200>, 70, 5>, make_type_list<70, 5>>);
+
+#endif
 }
 
 int main()
@@ -111,9 +132,9 @@ int main()
 	using namespace mz;
 
 #ifdef __INTELLISENSE__
-	using types = make_type_list<20>;
+	using types = make_type_list<0, 20>;
 #else
-	using types								 = make_type_list<200>;
+	using types = make_type_list<0, 200>;
 #endif
 
 	constexpr size_t slice_length = type_list_length<types> / 10u;
@@ -133,7 +154,7 @@ int main()
 			for_sequence<type_list_length<slice>>(
 				[](auto idx)
 				{
-					std::cout << decltype(idx)::value << " ";
+					std::printf("%zu\n", decltype(idx)::value);
 				});
 		});
 }

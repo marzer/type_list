@@ -3,8 +3,6 @@ A variadic type list 'tag' type optimized to be more compiler-friendly than `std
 
 See [Compilation speed humps: std::tuple](https://marzer.github.io/md_blog_2021_05_31_compilation_speed_humps_std_tuple.html) for a write-up on the sorts of optimizations applied herein.
 
-<br><br>
-
 ## Synopsis
 
 ```cpp
@@ -26,13 +24,9 @@ namespace mz
 }
 ```
 
-<br><br>
-
 ## Installation
 
 It's a single header. Drop it in your project.
-
-<br><br>
 
 ## License
 MIT. See [LICENSE](LICENSE).

@@ -24,10 +24,7 @@ AlwaysBreakAfterReturnType: None
 AlwaysBreakBeforeMultilineStrings: false
 AlwaysBreakTemplateDeclarations: Yes
 AttributeMacros:
-  - TL_ABSTRACT_INTERFACE
-  - TL_EMPTY_BASE_CLASSES
-  - TL_TRIVIAL_ABI
-  - TL_VECTORCALL
+  - MZ_EMPTY_BASES
 BinPackArguments: false
 BinPackParameters: false
 BraceWrapping:
@@ -153,43 +150,14 @@ SpaceBeforeSquareBrackets: false
 BitFieldColonSpacing: Both
 Standard:        Latest
 StatementMacros:
-  - TL_ALLOCATOR
-  - TL_ALWAYS_INLINE
-  - TL_API
-  - TL_ATTR
-  - TL_ATTR_NDEBUG
-  - TL_CONSTEVAL
-  - TL_CONSTRAINED_TEMPLATE
-  - TL_GENERIC_ALLOCATOR_ATTRS
-  - TL_LEGACY_REQUIRES
-  - TL_LEGACY_REQUIRES_2
-  - TL_NEVER_INLINE
-  - TL_NODISCARD
-  - TL_NODISCARD_CTOR
-  - TL_PRAGMA_CLANG
-  - TL_PRAGMA_GCC
-  - TL_PRAGMA_MSVC
-  - TL_RETURNS_BY_THROWING
 TabWidth:        4
 TypenameMacros:
-  - TL_VC_PARAM
-  - TL_GEOM_PARAM
-  - TL_IDENTITY
 UseCRLF:         false
 UseTab:          Always
 WhitespaceSensitiveMacros:
   - STRINGIZE
   - PP_STRINGIZE
   - BOOST_PP_STRINGIZE
-  - TL_ATTR
-  - TL_CONCAT
-  - TL_LIKELY
-  - TL_MAKE_RAW_STRING
-  - TL_MAKE_STRING
-  - TL_MAKE_STRING_VIEW
-  - TL_PRAGMA_CLANG
-  - TL_PRAGMA_GCC
-  - TL_PRAGMA_MSVC
-  - TL_UNLIKELY
+  - MZ_CONCAT
 ...
 

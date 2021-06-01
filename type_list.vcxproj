@@ -60,13 +60,14 @@
   <Import Project="type_list.props" />
   <ItemGroup>
     <None Include=".clang-format" />
+    <None Include="include\meson.build" />
     <None Include="LICENSE" />
     <None Include="meson.build" />
     <None Include="README.md" />
     <None Include="type_list.props" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="type_list.h" />
+    <ClInclude Include="include\mz\type_list.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

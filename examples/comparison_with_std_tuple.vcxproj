@@ -59,7 +59,7 @@
   </ImportGroup>
   <Import Project="..\type_list.props" />
   <PropertyGroup>
-    <IncludePath>$(RepoRoot);$(IncludePath)</IncludePath>
+    <IncludePath>$(RepoRoot)include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemGroup>
     <None Include="..\type_list.props" />

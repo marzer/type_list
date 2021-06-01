@@ -20,6 +20,5 @@ project(
 	]
 )
 
-inc = include_directories('.')
-
+subdir('include')
 subdir('examples')
