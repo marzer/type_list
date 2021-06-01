@@ -369,6 +369,19 @@
 #define MZ_0_TO_47				  MZ_0_TO_31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47
 #define MZ_0_TO_63				  MZ_0_TO_47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63
 
+// special-case versions of clang known to have the builtin because older versions implemented __has_builtin poorly
+#if defined(__clang_major__) && __clang_major__ >= 6
+	#define MZ_HAS_TYPE_PACK_ELEMENT 1
+#endif
+#if !defined(MZ_HAS_TYPE_PACK_ELEMENT) && defined(__has_builtin)
+	#if __has_builtin(__type_pack_element)
+		#define MZ_HAS_TYPE_PACK_ELEMENT 1
+	#endif
+#endif
+#ifndef MZ_HAS_TYPE_PACK_ELEMENT
+	#define MZ_HAS_TYPE_PACK_ELEMENT 0
+#endif
+
 namespace mz
 {
 	using std::size_t;
@@ -384,20 +397,33 @@ namespace mz
 		{
 			first,
 			skip_page,
-			by_index
+			by_index,
+			by_compiler_builtin
 		};
 
 		// clang-format off
 
 		// selector
 		template <typename List, size_t N, type_list_selector_spec Specialization = (
+			MZ_HAS_TYPE_PACK_ELEMENT ? type_list_selector_spec::by_compiler_builtin : (
 			N == 0 ? type_list_selector_spec::first : (
 			N > type_list_spec_max ? type_list_selector_spec::skip_page : (
 			type_list_selector_spec::by_index
-		)))>
+		))))>
 		struct type_list_selector_;
 
 		// clang-format on
+
+#if MZ_HAS_TYPE_PACK_ELEMENT
+
+		// selector - selecting elements using a compiler builtin
+		template <typename... T, size_t N>
+		struct type_list_selector_<type_list<T...>, N, type_list_selector_spec::by_compiler_builtin>
+		{
+			using type = __type_pack_element<N, T...>;
+		};
+
+#else
 
 		// selector - first element
 		template <typename T0, typename... T, size_t N>
@@ -416,15 +442,15 @@ namespace mz
 		};
 
 		// selector - low-index elements
-#define MAKE_SELECTOR_1(N, N0, ...)                                                                                    \
-	template <typename T##N0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TPARAM, __VA_ARGS__), typename... T>                          \
-	struct type_list_selector_<type_list<T##N0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TARG, __VA_ARGS__), T...>,                  \
-							   N,                                                                                      \
-							   type_list_selector_spec::by_index>                                                      \
-	{                                                                                                                  \
-		using type = T##N;                                                                                             \
-	}
-#define MAKE_SELECTOR(...) MAKE_SELECTOR_1(__VA_ARGS__)
+	#define MAKE_SELECTOR_1(N, N0, ...)                                                                                \
+		template <typename T##N0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TPARAM, __VA_ARGS__), typename... T>                      \
+		struct type_list_selector_<type_list<T##N0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TARG, __VA_ARGS__), T...>,              \
+								   N,                                                                                  \
+								   type_list_selector_spec::by_index>                                                  \
+		{                                                                                                              \
+			using type = T##N;                                                                                         \
+		}
+	#define MAKE_SELECTOR(...) MAKE_SELECTOR_1(__VA_ARGS__)
 
 		template <typename T0, typename T1, typename... T>
 		struct type_list_selector_<type_list<T0, T1, T...>, 1, type_list_selector_spec::by_index>
@@ -495,8 +521,10 @@ namespace mz
 		MAKE_SELECTOR(62, MZ_0_TO_47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62);
 		MAKE_SELECTOR(63, MZ_0_TO_63);
 
-#undef MAKE_SELECTOR_1
-#undef MAKE_SELECTOR
+	#undef MAKE_SELECTOR_1
+	#undef MAKE_SELECTOR
+
+#endif // !MZ_HAS_TYPE_PACK_ELEMENT
 
 		// selector - helper typedef
 		template <typename List, size_t N>
@@ -511,7 +539,8 @@ namespace mz
 			prefix,
 			skip_first_N,
 			skip_page,
-			big_range
+			big_range,
+			single_by_compiler_builtin
 		};
 
 		// clang-format off
@@ -519,6 +548,7 @@ namespace mz
 		// slicer
 		template <typename List, size_t Start, size_t Length, type_list_slicer_spec Specialization = (
 			List::length == 0 || Length == 0 ? type_list_slicer_spec::empty : (
+			Length == 1 && MZ_HAS_TYPE_PACK_ELEMENT ? type_list_slicer_spec::single_by_compiler_builtin : (
 			Start == 0 && Length == 1 ? type_list_slicer_spec::first : (
 			Start == 0 && List::length == Length ? type_list_slicer_spec::all : (
 			Start > type_list_spec_max ? type_list_slicer_spec::skip_page : (
@@ -526,7 +556,7 @@ namespace mz
 			Start == 0 && Length <= type_list_spec_max+1 ? type_list_slicer_spec::prefix : (
 			Start > 0 ? type_list_slicer_spec::skip_first_N : (
 			type_list_slicer_spec::big_range
-		))))))))>
+		)))))))))>
 		struct type_list_slicer_;
 
 		// clang-format on
@@ -562,18 +592,29 @@ namespace mz
 													Length>::type;
 		};
 
+#if MZ_HAS_TYPE_PACK_ELEMENT
+
+		// slicer - selecting arbitrary single element spans using a compiler builtin
+		template <typename... T, size_t Start>
+		struct type_list_slicer_<type_list<T...>, Start, 1, type_list_slicer_spec::single_by_compiler_builtin>
+		{
+			using type = type_list<__type_pack_element<Start, T...>>;
+		};
+
+#else
+
 		// slicer - low-index elements
 
-#define MAKE_SINGLE_ELEMENT_SLICER_1(N, N0, ...)                                                                       \
-	template <typename T##N0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TPARAM, __VA_ARGS__), typename... T>                          \
-	struct type_list_slicer_<type_list<T##N0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TARG, __VA_ARGS__), T...>,                    \
-							 N,                                                                                        \
-							 1,                                                                                        \
-							 type_list_slicer_spec::single_by_index>                                                   \
-	{                                                                                                                  \
-		using type = type_list<T##N>;                                                                                  \
-	}
-#define MAKE_SINGLE_ELEMENT_SLICER(...) MAKE_SINGLE_ELEMENT_SLICER_1(__VA_ARGS__)
+	#define MAKE_SINGLE_ELEMENT_SLICER_1(N, N0, ...)                                                                   \
+		template <typename T##N0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TPARAM, __VA_ARGS__), typename... T>                      \
+		struct type_list_slicer_<type_list<T##N0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TARG, __VA_ARGS__), T...>,                \
+								 N,                                                                                    \
+								 1,                                                                                    \
+								 type_list_slicer_spec::single_by_index>                                               \
+		{                                                                                                              \
+			using type = type_list<T##N>;                                                                              \
+		}
+	#define MAKE_SINGLE_ELEMENT_SLICER(...) MAKE_SINGLE_ELEMENT_SLICER_1(__VA_ARGS__)
 
 		template <typename T0, typename T1, typename... T>
 		struct type_list_slicer_<type_list<T0, T1, T...>, 1, 1, type_list_slicer_spec::single_by_index>
@@ -644,8 +685,10 @@ namespace mz
 		MAKE_SINGLE_ELEMENT_SLICER(62, MZ_0_TO_47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62);
 		MAKE_SINGLE_ELEMENT_SLICER(63, MZ_0_TO_63);
 
-#undef MAKE_SINGLE_ELEMENT_SLICER_1
-#undef MAKE_SINGLE_ELEMENT_SLICER
+	#undef MAKE_SINGLE_ELEMENT_SLICER_1
+	#undef MAKE_SINGLE_ELEMENT_SLICER
+
+#endif // !MZ_HAS_TYPE_PACK_ELEMENT
 
 		// slicer - prefixes
 
@@ -977,3 +1020,5 @@ namespace mz
 #undef MZ_0_TO_31
 #undef MZ_0_TO_47
 #undef MZ_0_TO_63
+
+#undef MZ_HAS_TYPE_PACK_ELEMENT

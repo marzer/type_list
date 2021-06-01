@@ -1,9 +1,13 @@
 
-is_clang = meson.get_compiler('cpp').get_id() == 'clang'
+compiler = meson.get_compiler('cpp')
+is_clang = compiler.get_id() == 'clang'
 
 example_args = []
 if is_clang
-	example_args += [ '-ftime-trace' ]
+	clang_major = '@0@'.format(compiler.version()).split('.')[0].strip().to_int()
+	if clang_major >= 9
+		example_args += [ '-ftime-trace' ]
+	endif
 endif
 
 executable(
