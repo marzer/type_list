@@ -16,7 +16,7 @@ project(
 		'b_ndebug=if-release',
 
 		# compiler options
-		'cpp_std=c++17'
+		'cpp_std=c++11'
 	]
 )
 

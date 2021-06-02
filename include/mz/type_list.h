@@ -5,29 +5,32 @@
 
 #pragma once
 #include <cstdint>
-#include <type_traits>
 #include <utility>
 
-#if !defined(MZ_TYPE_LIST_OPT_COUNT) || MZ_TYPE_LIST_OPT_COUNT <= 0 || MZ_TYPE_LIST_OPT_COUNT > 64
-	#undef MZ_TYPE_LIST_OPT_COUNT
-	#define MZ_TYPE_LIST_OPT_COUNT 32
+#if !defined(MZ_TYPE_LIST_PAGE_SIZE) || MZ_TYPE_LIST_PAGE_SIZE <= 0 || MZ_TYPE_LIST_PAGE_SIZE > 64
+	#undef MZ_TYPE_LIST_PAGE_SIZE
+	#define MZ_TYPE_LIST_PAGE_SIZE 32
 #endif
-#if MZ_TYPE_LIST_OPT_COUNT < 8
-	#undef MZ_TYPE_LIST_OPT_COUNT
-	#define MZ_TYPE_LIST_OPT_COUNT 8
+#if MZ_TYPE_LIST_PAGE_SIZE < 8
+	#undef MZ_TYPE_LIST_PAGE_SIZE
+	#define MZ_TYPE_LIST_PAGE_SIZE 8
 #endif
 
-// special-case versions of clang known to have the builtin because older versions implemented __has_builtin poorly
-#if !defined(MZ_HAS_TYPE_PACK_ELEMENT) && defined(__clang_major__) && __clang_major__ >= 6
-	#define MZ_HAS_TYPE_PACK_ELEMENT 1
+#ifndef MZ_HAS_JUMBO_PAGES
+	#define MZ_HAS_JUMBO_PAGES 1
 #endif
-#if !defined(MZ_HAS_TYPE_PACK_ELEMENT) && defined(__has_builtin)
-	#if __has_builtin(__type_pack_element)
-		#define MZ_HAS_TYPE_PACK_ELEMENT 1
-	#endif
-#endif
+
 #ifndef MZ_HAS_TYPE_PACK_ELEMENT
-	#define MZ_HAS_TYPE_PACK_ELEMENT 0
+	#if defined(__clang_major__) && __clang_major__ >= 6 // older clang implemented __has_builtin poorly
+		#define MZ_HAS_TYPE_PACK_ELEMENT 1
+	#elif defined(__has_builtin)
+		#if __has_builtin(__type_pack_element)
+			#define MZ_HAS_TYPE_PACK_ELEMENT 1
+		#endif
+	#endif
+	#ifndef MZ_HAS_TYPE_PACK_ELEMENT
+		#define MZ_HAS_TYPE_PACK_ELEMENT 0
+	#endif
 #endif
 
 #ifdef _MSC_VER
@@ -392,7 +395,8 @@
 	#define MZ_CONCAT(x, y)			  MZ_CONCAT_1(x, y)
 	#define MZ_MAKE_INDEXED_TPARAM(N) MZ_COMMA typename MZ_CONCAT(T, N)
 	#define MZ_MAKE_INDEXED_TARG(N)	  MZ_COMMA MZ_CONCAT(T, N)
-	#define MZ_0_TO_15				  0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+	#define MZ_0_TO_7				  0, 1, 2, 3, 4, 5, 6, 7
+	#define MZ_0_TO_15				  MZ_0_TO_7, 8, 9, 10, 11, 12, 13, 14, 15
 	#define MZ_0_TO_31				  MZ_0_TO_15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31
 	#define MZ_0_TO_47				  MZ_0_TO_31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47
 	#define MZ_0_TO_63				  MZ_0_TO_47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63
@@ -408,7 +412,12 @@ namespace mz
 
 	namespace impl
 	{
-		inline constexpr size_t type_list_opt_count = MZ_TYPE_LIST_OPT_COUNT;
+		inline constexpr size_t type_list_page_size = MZ_TYPE_LIST_PAGE_SIZE;
+#if MZ_HAS_JUMBO_PAGES
+		inline constexpr size_t type_list_jumbo_page_size = 128;
+#else
+		inline constexpr size_t type_list_jumbo_page_size = static_cast<size_t>(-1);
+#endif
 
 		enum class type_list_selector_spec : int
 		{
@@ -422,11 +431,12 @@ namespace mz
 
 		// selector
 		template <typename List, size_t N, type_list_selector_spec Specialization = (
-			MZ_HAS_TYPE_PACK_ELEMENT ? type_list_selector_spec::compiler_builtin : (
-			N == 0                   ? type_list_selector_spec::first : (
-			N >= type_list_opt_count ? type_list_selector_spec::skip_pages : (
-			                           type_list_selector_spec::low_index
-		))))>
+			MZ_HAS_TYPE_PACK_ELEMENT       ? type_list_selector_spec::compiler_builtin : (
+			N == 0                         ? type_list_selector_spec::first : (
+			N >= type_list_jumbo_page_size ? type_list_selector_spec::skip_pages : (
+			N >= type_list_page_size       ? type_list_selector_spec::skip_pages : (
+			                               type_list_selector_spec::low_index
+		)))))>
 		struct type_list_selector_;
 
 		// clang-format on
@@ -449,24 +459,25 @@ namespace mz
 			using type = T0;
 		};
 
-		// selector - skip whole pages (multiples of type_list_opt_count)
+		// selector - skip pages
 		template <typename List, size_t N>
 		struct type_list_selector_<List, N, type_list_selector_spec::skip_pages>
 		{
 			// invokes the skip_pages specialization of the slicer
-			using type = typename List::template slice<N>::template select<0>;
+			using type = typename List::template slice<N, 1>::template select<0>;
 		};
 
 		// selector - low-index elements
-	#define MAKE_SELECTOR_1(N, N0, ...)                                                                                \
-		template <typename T##N0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TPARAM, __VA_ARGS__), typename... T>                      \
-		struct type_list_selector_<type_list<T##N0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TARG, __VA_ARGS__), T...>,              \
-								   N,                                                                                  \
-								   type_list_selector_spec::low_index>                                                 \
-		{                                                                                                              \
-			using type = T##N;                                                                                         \
-		}
-	#define MAKE_SELECTOR(...) MAKE_SELECTOR_1(__VA_ARGS__)
+	#if 1
+		#define MAKE_SELECTOR_1(N, N0, ...)                                                                            \
+			template <typename T##N0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TPARAM, __VA_ARGS__), typename... T>                  \
+			struct type_list_selector_<type_list<T##N0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TARG, __VA_ARGS__), T...>,          \
+									   N,                                                                              \
+									   type_list_selector_spec::low_index>                                             \
+			{                                                                                                          \
+				using type = T##N;                                                                                     \
+			}
+		#define MAKE_SELECTOR(...) MAKE_SELECTOR_1(__VA_ARGS__)
 
 		template <typename T0, typename T1, typename... T>
 		struct type_list_selector_<type_list<T0, T1, T...>, 1, type_list_selector_spec::low_index>
@@ -479,18 +490,18 @@ namespace mz
 		MAKE_SELECTOR(4, 0, 1, 2, 3, 4);
 		MAKE_SELECTOR(5, 0, 1, 2, 3, 4, 5);
 		MAKE_SELECTOR(6, 0, 1, 2, 3, 4, 5, 6);
-		MAKE_SELECTOR(7, 0, 1, 2, 3, 4, 5, 6, 7);
-	#if MZ_TYPE_LIST_OPT_COUNT > 8
-		MAKE_SELECTOR(8, 0, 1, 2, 3, 4, 5, 6, 7, 8);
-		MAKE_SELECTOR(9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
-		MAKE_SELECTOR(10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-		MAKE_SELECTOR(11, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
-		MAKE_SELECTOR(12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12);
-		MAKE_SELECTOR(13, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13);
-		MAKE_SELECTOR(14, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+		MAKE_SELECTOR(7, MZ_0_TO_7);
+		#if MZ_TYPE_LIST_PAGE_SIZE > 8
+		MAKE_SELECTOR(8, MZ_0_TO_7, 8);
+		MAKE_SELECTOR(9, MZ_0_TO_7, 8, 9);
+		MAKE_SELECTOR(10, MZ_0_TO_7, 8, 9, 10);
+		MAKE_SELECTOR(11, MZ_0_TO_7, 8, 9, 10, 11);
+		MAKE_SELECTOR(12, MZ_0_TO_7, 8, 9, 10, 11, 12);
+		MAKE_SELECTOR(13, MZ_0_TO_7, 8, 9, 10, 11, 12, 13);
+		MAKE_SELECTOR(14, MZ_0_TO_7, 8, 9, 10, 11, 12, 13, 14);
 		MAKE_SELECTOR(15, MZ_0_TO_15);
-	#endif
-	#if MZ_TYPE_LIST_OPT_COUNT > 16
+		#endif
+		#if MZ_TYPE_LIST_PAGE_SIZE > 16
 		MAKE_SELECTOR(16, MZ_0_TO_15, 16);
 		MAKE_SELECTOR(17, MZ_0_TO_15, 16, 17);
 		MAKE_SELECTOR(18, MZ_0_TO_15, 16, 17, 18);
@@ -507,8 +518,8 @@ namespace mz
 		MAKE_SELECTOR(29, MZ_0_TO_15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29);
 		MAKE_SELECTOR(30, MZ_0_TO_15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30);
 		MAKE_SELECTOR(31, MZ_0_TO_31);
-	#endif
-	#if MZ_TYPE_LIST_OPT_COUNT > 32
+		#endif
+		#if MZ_TYPE_LIST_PAGE_SIZE > 32
 		MAKE_SELECTOR(32, MZ_0_TO_31, 32);
 		MAKE_SELECTOR(33, MZ_0_TO_31, 32, 33);
 		MAKE_SELECTOR(34, MZ_0_TO_31, 32, 33, 34);
@@ -525,8 +536,8 @@ namespace mz
 		MAKE_SELECTOR(45, MZ_0_TO_31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45);
 		MAKE_SELECTOR(46, MZ_0_TO_31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46);
 		MAKE_SELECTOR(47, MZ_0_TO_47);
-	#endif
-	#if MZ_TYPE_LIST_OPT_COUNT > 48
+		#endif
+		#if MZ_TYPE_LIST_PAGE_SIZE > 48
 		MAKE_SELECTOR(48, MZ_0_TO_47, 48);
 		MAKE_SELECTOR(49, MZ_0_TO_47, 48, 49);
 		MAKE_SELECTOR(50, MZ_0_TO_47, 48, 49, 50);
@@ -543,10 +554,11 @@ namespace mz
 		MAKE_SELECTOR(61, MZ_0_TO_47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61);
 		MAKE_SELECTOR(62, MZ_0_TO_47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62);
 		MAKE_SELECTOR(63, MZ_0_TO_63);
-	#endif
+		#endif
 
-	#undef MAKE_SELECTOR_1
-	#undef MAKE_SELECTOR
+		#undef MAKE_SELECTOR_1
+		#undef MAKE_SELECTOR
+	#endif
 
 #endif // !MZ_HAS_TYPE_PACK_ELEMENT
 
@@ -555,29 +567,31 @@ namespace mz
 			empty,
 			first,
 			all,
-			single_low_index,
-			prefix,
 			skip_first_N,
+			skip_jumbo_pages,
 			skip_pages,
-			arbitrary_range,
-			single_compiler_builtin
+			prefix,
+			single_low_index,
+			single_compiler_builtin,
+			arbitrary_range
 		};
 
 		// clang-format off
 
 		// slicer
 		template <typename List, size_t Start, size_t Length, type_list_slicer_spec Specialization = (
-			List::length == 0 || Length == 0            ? type_list_slicer_spec::empty : (
-			Length == 1 && MZ_HAS_TYPE_PACK_ELEMENT     ? type_list_slicer_spec::single_compiler_builtin : (
-			MZ_HAS_TYPE_PACK_ELEMENT                    ? type_list_slicer_spec::arbitrary_range : (
-			Start == 0 && Length == 1                   ? type_list_slicer_spec::first : (
-			Start == 0 && List::length == Length        ? type_list_slicer_spec::all : (
-			Start >= type_list_opt_count                ? type_list_slicer_spec::skip_pages : (
-			Length == 1                                 ? type_list_slicer_spec::single_low_index : (
-			Start == 0 && Length <= type_list_opt_count ? type_list_slicer_spec::prefix : (
-			Start > 0                                   ? type_list_slicer_spec::skip_first_N : (
-			                                              type_list_slicer_spec::arbitrary_range
-		))))))))))>
+			!List::length || !Length || Start >= List::length ? type_list_slicer_spec::empty : (
+			Length == 1 && MZ_HAS_TYPE_PACK_ELEMENT           ? type_list_slicer_spec::single_compiler_builtin : (
+			Start == 0 && Length == 1                         ? type_list_slicer_spec::first : (
+			Start == 0 && List::length == Length              ? type_list_slicer_spec::all : (
+			Start >= type_list_jumbo_page_size                ? type_list_slicer_spec::skip_jumbo_pages : (
+			MZ_HAS_TYPE_PACK_ELEMENT                          ? type_list_slicer_spec::arbitrary_range : (
+			Start >= type_list_page_size                      ? type_list_slicer_spec::skip_pages : (
+			Length == 1                                       ? type_list_slicer_spec::single_low_index : (
+			Start == 0 && Length <= type_list_page_size       ? type_list_slicer_spec::prefix : (
+			Start > 0                                         ? type_list_slicer_spec::skip_first_N : (
+			                                                    type_list_slicer_spec::arbitrary_range
+		)))))))))))>
 		struct type_list_slicer_;
 
 		// clang-format on
@@ -602,17 +616,6 @@ namespace mz
 			: type_list_index_sequence_slicer_<List, Start, std::make_index_sequence<Length>>
 		{};
 
-#if MZ_HAS_TYPE_PACK_ELEMENT
-
-		// slicer - selecting arbitrary single element spans using a compiler builtin
-		template <typename... T, size_t Start>
-		struct type_list_slicer_<type_list<T...>, Start, 1, type_list_slicer_spec::single_compiler_builtin>
-		{
-			using type = type_list<__type_pack_element<Start, T...>>;
-		};
-
-#else
-
 		// slicer - first element
 		template <typename T0, typename... T, size_t Start, size_t Length>
 		struct type_list_slicer_<type_list<T0, T...>, Start, Length, type_list_slicer_spec::first>
@@ -627,30 +630,91 @@ namespace mz
 			using type = List;
 		};
 
-		// slicer - skip whole pages (multiples of type_list_opt_count)
+		// slicer - skip jumbo pages (multiples of type_list_jumbo_page_size)
+#if MZ_HAS_JUMBO_PAGES
+		// clang-format off
+		template <
+			typename T0, typename T1, typename T2, typename T3, typename T4, typename T5, typename T6, typename T7,
+			typename T8, typename T9, typename T10, typename T11, typename T12, typename T13, typename T14, typename T15,
+			typename T16, typename T17, typename T18, typename T19, typename T20, typename T21, typename T22, typename T23,
+			typename T24, typename T25, typename T26, typename T27, typename T28, typename T29, typename T30, typename T31,
+			typename T32, typename T33, typename T34, typename T35, typename T36, typename T37, typename T38, typename T39,
+			typename T40, typename T41, typename T42, typename T43, typename T44, typename T45, typename T46, typename T47,
+			typename T48, typename T49, typename T50, typename T51, typename T52, typename T53, typename T54, typename T55,
+			typename T56, typename T57, typename T58, typename T59, typename T60, typename T61, typename T62, typename T63,
+			typename T64, typename T65, typename T66, typename T67, typename T68, typename T69, typename T70, typename T71,
+			typename T72, typename T73, typename T74, typename T75, typename T76, typename T77, typename T78, typename T79,
+			typename T80, typename T81, typename T82, typename T83, typename T84, typename T85, typename T86, typename T87,
+			typename T88, typename T89, typename T90, typename T91, typename T92, typename T93, typename T94, typename T95,
+			typename T96, typename T97, typename T98, typename T99, typename T100, typename T101, typename T102, typename T103,
+			typename T104, typename T105, typename T106, typename T107, typename T108, typename T109, typename T110, typename T111,
+			typename T112, typename T113, typename T114, typename T115, typename T116, typename T117, typename T118, typename T119,
+			typename T120, typename T121, typename T122, typename T123, typename T124, typename T125, typename T126, typename T127,
+			typename... T, size_t Start, size_t Length
+		>
+		struct type_list_slicer_<
+			type_list<
+				T0, T1, T2, T3, T4, T5, T6, T7,
+				T8, T9, T10, T11, T12, T13, T14, T15,
+				T16, T17, T18, T19, T20, T21, T22, T23,
+				T24, T25, T26, T27, T28, T29, T30, T31,
+				T32, T33, T34, T35, T36, T37, T38, T39,
+				T40, T41, T42, T43, T44, T45, T46, T47,
+				T48, T49, T50, T51, T52, T53, T54, T55,
+				T56, T57, T58, T59, T60, T61, T62, T63,
+				T64, T65, T66, T67, T68, T69, T70, T71,
+				T72, T73, T74, T75, T76, T77, T78, T79,
+				T80, T81, T82, T83, T84, T85, T86, T87,
+				T88, T89, T90, T91, T92, T93, T94, T95,
+				T96, T97, T98, T99, T100, T101, T102, T103,
+				T104, T105, T106, T107, T108, T109, T110, T111,
+				T112, T113, T114, T115, T116, T117, T118, T119,
+				T120, T121, T122, T123, T124, T125, T126, T127,
+				T...
+			>,
+			Start, Length, type_list_slicer_spec::skip_jumbo_pages
+		>
+		{
+			using type = typename type_list<T...>::template slice<Start - type_list_jumbo_page_size, Length>;
+		};
+		// clang-format on
+#endif // MZ_HAS_JUMBO_PAGES
+
+#if MZ_HAS_TYPE_PACK_ELEMENT
+
+		// slicer - selecting arbitrary single element spans using a compiler builtin
+		template <typename... T, size_t Start>
+		struct type_list_slicer_<type_list<T...>, Start, 1, type_list_slicer_spec::single_compiler_builtin>
+		{
+			using type = type_list<__type_pack_element<Start, T...>>;
+		};
+
+#else
+
+		// slicer - skip pages (multiples of type_list_page_size)
 		template <typename List, size_t Start, size_t Length>
 		struct type_list_slicer_<List, Start, Length, type_list_slicer_spec::skip_pages>
 		{
-			// repeatedly invokes the skip_first_N specialization until Start is < type_list_opt_count
+			// repeatedly invokes the skip_first_N specialization until Start is < type_list_page_size
 			using type = typename type_list_slicer_<List,
-													type_list_opt_count,
-													List::length - type_list_opt_count,
+													type_list_page_size,
+													List::length - type_list_page_size,
 													type_list_slicer_spec::skip_first_N>::type //
-				::template slice<Start - type_list_opt_count, Length>;
+				::template slice<Start - type_list_page_size, Length>;
 		};
 
 		// slicer - low-index elements
-
-	#define MAKE_SINGLE_ELEMENT_SLICER_1(N, N0, ...)                                                                   \
-		template <typename T##N0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TPARAM, __VA_ARGS__), typename... T>                      \
-		struct type_list_slicer_<type_list<T##N0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TARG, __VA_ARGS__), T...>,                \
-								 N,                                                                                    \
-								 1,                                                                                    \
-								 type_list_slicer_spec::single_low_index>                                              \
-		{                                                                                                              \
-			using type = type_list<T##N>;                                                                              \
-		}
-	#define MAKE_SINGLE_ELEMENT_SLICER(...) MAKE_SINGLE_ELEMENT_SLICER_1(__VA_ARGS__)
+	#if 1
+		#define MAKE_SINGLE_ELEMENT_SLICER_1(N, N0, ...)                                                               \
+			template <typename T##N0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TPARAM, __VA_ARGS__), typename... T>                  \
+			struct type_list_slicer_<type_list<T##N0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TARG, __VA_ARGS__), T...>,            \
+									 N,                                                                                \
+									 1,                                                                                \
+									 type_list_slicer_spec::single_low_index>                                          \
+			{                                                                                                          \
+				using type = type_list<T##N>;                                                                          \
+			}
+		#define MAKE_SINGLE_ELEMENT_SLICER(...) MAKE_SINGLE_ELEMENT_SLICER_1(__VA_ARGS__)
 
 		template <typename T0, typename T1, typename... T>
 		struct type_list_slicer_<type_list<T0, T1, T...>, 1, 1, type_list_slicer_spec::single_low_index>
@@ -663,18 +727,18 @@ namespace mz
 		MAKE_SINGLE_ELEMENT_SLICER(4, 0, 1, 2, 3, 4);
 		MAKE_SINGLE_ELEMENT_SLICER(5, 0, 1, 2, 3, 4, 5);
 		MAKE_SINGLE_ELEMENT_SLICER(6, 0, 1, 2, 3, 4, 5, 6);
-		MAKE_SINGLE_ELEMENT_SLICER(7, 0, 1, 2, 3, 4, 5, 6, 7);
-	#if MZ_TYPE_LIST_OPT_COUNT > 8
-		MAKE_SINGLE_ELEMENT_SLICER(8, 0, 1, 2, 3, 4, 5, 6, 7, 8);
-		MAKE_SINGLE_ELEMENT_SLICER(9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
-		MAKE_SINGLE_ELEMENT_SLICER(10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-		MAKE_SINGLE_ELEMENT_SLICER(11, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
-		MAKE_SINGLE_ELEMENT_SLICER(12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12);
-		MAKE_SINGLE_ELEMENT_SLICER(13, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13);
-		MAKE_SINGLE_ELEMENT_SLICER(14, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+		MAKE_SINGLE_ELEMENT_SLICER(7, MZ_0_TO_7);
+		#if MZ_TYPE_LIST_PAGE_SIZE > 8
+		MAKE_SINGLE_ELEMENT_SLICER(8, MZ_0_TO_7, 8);
+		MAKE_SINGLE_ELEMENT_SLICER(9, MZ_0_TO_7, 8, 9);
+		MAKE_SINGLE_ELEMENT_SLICER(10, MZ_0_TO_7, 8, 9, 10);
+		MAKE_SINGLE_ELEMENT_SLICER(11, MZ_0_TO_7, 8, 9, 10, 11);
+		MAKE_SINGLE_ELEMENT_SLICER(12, MZ_0_TO_7, 8, 9, 10, 11, 12);
+		MAKE_SINGLE_ELEMENT_SLICER(13, MZ_0_TO_7, 8, 9, 10, 11, 12, 13);
+		MAKE_SINGLE_ELEMENT_SLICER(14, MZ_0_TO_7, 8, 9, 10, 11, 12, 13, 14);
 		MAKE_SINGLE_ELEMENT_SLICER(15, MZ_0_TO_15);
-	#endif
-	#if MZ_TYPE_LIST_OPT_COUNT > 16
+		#endif
+		#if MZ_TYPE_LIST_PAGE_SIZE > 16
 		MAKE_SINGLE_ELEMENT_SLICER(16, MZ_0_TO_15, 16);
 		MAKE_SINGLE_ELEMENT_SLICER(17, MZ_0_TO_15, 16, 17);
 		MAKE_SINGLE_ELEMENT_SLICER(18, MZ_0_TO_15, 16, 17, 18);
@@ -691,8 +755,8 @@ namespace mz
 		MAKE_SINGLE_ELEMENT_SLICER(29, MZ_0_TO_15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29);
 		MAKE_SINGLE_ELEMENT_SLICER(30, MZ_0_TO_15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30);
 		MAKE_SINGLE_ELEMENT_SLICER(31, MZ_0_TO_31);
-	#endif
-	#if MZ_TYPE_LIST_OPT_COUNT > 32
+		#endif
+		#if MZ_TYPE_LIST_PAGE_SIZE > 32
 		MAKE_SINGLE_ELEMENT_SLICER(32, MZ_0_TO_31, 32);
 		MAKE_SINGLE_ELEMENT_SLICER(33, MZ_0_TO_31, 32, 33);
 		MAKE_SINGLE_ELEMENT_SLICER(34, MZ_0_TO_31, 32, 33, 34);
@@ -709,8 +773,8 @@ namespace mz
 		MAKE_SINGLE_ELEMENT_SLICER(45, MZ_0_TO_31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45);
 		MAKE_SINGLE_ELEMENT_SLICER(46, MZ_0_TO_31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46);
 		MAKE_SINGLE_ELEMENT_SLICER(47, MZ_0_TO_47);
-	#endif
-	#if MZ_TYPE_LIST_OPT_COUNT > 48
+		#endif
+		#if MZ_TYPE_LIST_PAGE_SIZE > 48
 		MAKE_SINGLE_ELEMENT_SLICER(48, MZ_0_TO_47, 48);
 		MAKE_SINGLE_ELEMENT_SLICER(49, MZ_0_TO_47, 48, 49);
 		MAKE_SINGLE_ELEMENT_SLICER(50, MZ_0_TO_47, 48, 49, 50);
@@ -727,23 +791,24 @@ namespace mz
 		MAKE_SINGLE_ELEMENT_SLICER(61, MZ_0_TO_47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61);
 		MAKE_SINGLE_ELEMENT_SLICER(62, MZ_0_TO_47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62);
 		MAKE_SINGLE_ELEMENT_SLICER(63, MZ_0_TO_63);
+		#endif
+
+		#undef MAKE_SINGLE_ELEMENT_SLICER_1
+		#undef MAKE_SINGLE_ELEMENT_SLICER
 	#endif
 
-	#undef MAKE_SINGLE_ELEMENT_SLICER_1
-	#undef MAKE_SINGLE_ELEMENT_SLICER
-
 		// slicer - prefixes
-
-	#define MAKE_PREFIX_SLICER_1(N0, ...)                                                                              \
-		template <typename T##N0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TPARAM, __VA_ARGS__), typename... T>                      \
-		struct type_list_slicer_<type_list<T##N0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TARG, __VA_ARGS__), T...>,                \
-								 0,                                                                                    \
-								 MZ_COUNT_VA_ARGS(__VA_ARGS__) + 1,                                                    \
-								 type_list_slicer_spec::prefix>                                                        \
-		{                                                                                                              \
-			using type = type_list<T0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TARG, __VA_ARGS__)>;                                 \
-		}
-	#define MAKE_PREFIX_SLICER(...) MAKE_PREFIX_SLICER_1(__VA_ARGS__)
+	#if 1
+		#define MAKE_PREFIX_SLICER_1(N0, ...)                                                                          \
+			template <typename T##N0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TPARAM, __VA_ARGS__), typename... T>                  \
+			struct type_list_slicer_<type_list<T##N0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TARG, __VA_ARGS__), T...>,            \
+									 0,                                                                                \
+									 MZ_COUNT_VA_ARGS(__VA_ARGS__) + 1,                                                \
+									 type_list_slicer_spec::prefix>                                                    \
+			{                                                                                                          \
+				using type = type_list<T0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TARG, __VA_ARGS__)>;                             \
+			}
+		#define MAKE_PREFIX_SLICER(...) MAKE_PREFIX_SLICER_1(__VA_ARGS__)
 
 		template <typename T0, typename T1, typename... T>
 		struct type_list_slicer_<type_list<T0, T1, T...>, 0, 2, type_list_slicer_spec::prefix>
@@ -756,18 +821,18 @@ namespace mz
 		MAKE_PREFIX_SLICER(0, 1, 2, 3, 4);
 		MAKE_PREFIX_SLICER(0, 1, 2, 3, 4, 5);
 		MAKE_PREFIX_SLICER(0, 1, 2, 3, 4, 5, 6);
-		MAKE_PREFIX_SLICER(0, 1, 2, 3, 4, 5, 6, 7);
-	#if MZ_TYPE_LIST_OPT_COUNT > 8
-		MAKE_PREFIX_SLICER(0, 1, 2, 3, 4, 5, 6, 7, 8);
-		MAKE_PREFIX_SLICER(0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
-		MAKE_PREFIX_SLICER(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-		MAKE_PREFIX_SLICER(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
-		MAKE_PREFIX_SLICER(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12);
-		MAKE_PREFIX_SLICER(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13);
-		MAKE_PREFIX_SLICER(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+		MAKE_PREFIX_SLICER(MZ_0_TO_7);
+		#if MZ_TYPE_LIST_PAGE_SIZE > 8
+		MAKE_PREFIX_SLICER(MZ_0_TO_7, 8);
+		MAKE_PREFIX_SLICER(MZ_0_TO_7, 8, 9);
+		MAKE_PREFIX_SLICER(MZ_0_TO_7, 8, 9, 10);
+		MAKE_PREFIX_SLICER(MZ_0_TO_7, 8, 9, 10, 11);
+		MAKE_PREFIX_SLICER(MZ_0_TO_7, 8, 9, 10, 11, 12);
+		MAKE_PREFIX_SLICER(MZ_0_TO_7, 8, 9, 10, 11, 12, 13);
+		MAKE_PREFIX_SLICER(MZ_0_TO_7, 8, 9, 10, 11, 12, 13, 14);
 		MAKE_PREFIX_SLICER(MZ_0_TO_15);
-	#endif
-	#if MZ_TYPE_LIST_OPT_COUNT > 16
+		#endif
+		#if MZ_TYPE_LIST_PAGE_SIZE > 16
 		MAKE_PREFIX_SLICER(MZ_0_TO_15, 16);
 		MAKE_PREFIX_SLICER(MZ_0_TO_15, 16, 17);
 		MAKE_PREFIX_SLICER(MZ_0_TO_15, 16, 17, 18);
@@ -784,8 +849,8 @@ namespace mz
 		MAKE_PREFIX_SLICER(MZ_0_TO_15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29);
 		MAKE_PREFIX_SLICER(MZ_0_TO_15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30);
 		MAKE_PREFIX_SLICER(MZ_0_TO_31);
-	#endif
-	#if MZ_TYPE_LIST_OPT_COUNT > 32
+		#endif
+		#if MZ_TYPE_LIST_PAGE_SIZE > 32
 		MAKE_PREFIX_SLICER(MZ_0_TO_31, 32);
 		MAKE_PREFIX_SLICER(MZ_0_TO_31, 32, 33);
 		MAKE_PREFIX_SLICER(MZ_0_TO_31, 32, 33, 34);
@@ -802,8 +867,8 @@ namespace mz
 		MAKE_PREFIX_SLICER(MZ_0_TO_31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45);
 		MAKE_PREFIX_SLICER(MZ_0_TO_31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46);
 		MAKE_PREFIX_SLICER(MZ_0_TO_47);
-	#endif
-	#if MZ_TYPE_LIST_OPT_COUNT > 48
+		#endif
+		#if MZ_TYPE_LIST_PAGE_SIZE > 48
 		MAKE_PREFIX_SLICER(MZ_0_TO_47, 48);
 		MAKE_PREFIX_SLICER(MZ_0_TO_47, 48, 49);
 		MAKE_PREFIX_SLICER(MZ_0_TO_47, 48, 49, 50);
@@ -820,26 +885,27 @@ namespace mz
 		MAKE_PREFIX_SLICER(MZ_0_TO_47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61);
 		MAKE_PREFIX_SLICER(MZ_0_TO_47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62);
 		MAKE_PREFIX_SLICER(MZ_0_TO_63);
+		#endif
+
+		#undef MAKE_PREFIX_SLICER_1
+		#undef MAKE_PREFIX_SLICER
 	#endif
 
-	#undef MAKE_PREFIX_SLICER_1
-	#undef MAKE_PREFIX_SLICER
-
 		// slicer - skip first N
-
-	#define MAKE_SKIP_N_SLICER_1(N, N0, N1, ...)                                                                       \
-		template <typename T##N0,                                                                                      \
-				  typename T##N1 MZ_FOR_EACH(MZ_MAKE_INDEXED_TPARAM, __VA_ARGS__),                                     \
-				  typename... T,                                                                                       \
-				  size_t Length>                                                                                       \
-		struct type_list_slicer_<type_list<T##N0, T##N1 MZ_FOR_EACH(MZ_MAKE_INDEXED_TARG, __VA_ARGS__), T...>,         \
-								 N,                                                                                    \
-								 Length,                                                                               \
-								 type_list_slicer_spec::skip_first_N>                                                  \
-		{                                                                                                              \
-			using type = typename type_list<T##N, T...>::template slice<0, Length>;                                    \
-		}
-	#define MAKE_SKIP_N_SLICER(...) MAKE_SKIP_N_SLICER_1(__VA_ARGS__)
+	#if 1
+		#define MAKE_SKIP_N_SLICER_1(N, N0, N1, ...)                                                                   \
+			template <typename T##N0,                                                                                  \
+					  typename T##N1 MZ_FOR_EACH(MZ_MAKE_INDEXED_TPARAM, __VA_ARGS__),                                 \
+					  typename... T,                                                                                   \
+					  size_t Length>                                                                                   \
+			struct type_list_slicer_<type_list<T##N0, T##N1 MZ_FOR_EACH(MZ_MAKE_INDEXED_TARG, __VA_ARGS__), T...>,     \
+									 N,                                                                                \
+									 Length,                                                                           \
+									 type_list_slicer_spec::skip_first_N>                                              \
+			{                                                                                                          \
+				using type = typename type_list<T##N, T...>::template slice<0, Length>;                                \
+			}
+		#define MAKE_SKIP_N_SLICER(...) MAKE_SKIP_N_SLICER_1(__VA_ARGS__)
 
 		template <typename T0, typename T1, typename... T, size_t Length>
 		struct type_list_slicer_<type_list<T0, T1, T...>, 1, Length, type_list_slicer_spec::skip_first_N>
@@ -857,19 +923,19 @@ namespace mz
 		MAKE_SKIP_N_SLICER(4, 0, 1, 2, 3, 4);
 		MAKE_SKIP_N_SLICER(5, 0, 1, 2, 3, 4, 5);
 		MAKE_SKIP_N_SLICER(6, 0, 1, 2, 3, 4, 5, 6);
-		MAKE_SKIP_N_SLICER(7, 0, 1, 2, 3, 4, 5, 6, 7);
-		MAKE_SKIP_N_SLICER(8, 0, 1, 2, 3, 4, 5, 6, 7, 8);
-	#if MZ_TYPE_LIST_OPT_COUNT > 8
-		MAKE_SKIP_N_SLICER(9, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9);
-		MAKE_SKIP_N_SLICER(10, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10);
-		MAKE_SKIP_N_SLICER(11, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
-		MAKE_SKIP_N_SLICER(12, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12);
-		MAKE_SKIP_N_SLICER(13, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13);
-		MAKE_SKIP_N_SLICER(14, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14);
+		MAKE_SKIP_N_SLICER(7, MZ_0_TO_7);
+		MAKE_SKIP_N_SLICER(8, MZ_0_TO_7, 8);
+		#if MZ_TYPE_LIST_PAGE_SIZE > 8
+		MAKE_SKIP_N_SLICER(9, MZ_0_TO_7, 8, 9);
+		MAKE_SKIP_N_SLICER(10, MZ_0_TO_7, 8, 9, 10);
+		MAKE_SKIP_N_SLICER(11, MZ_0_TO_7, 8, 9, 10, 11);
+		MAKE_SKIP_N_SLICER(12, MZ_0_TO_7, 8, 9, 10, 11, 12);
+		MAKE_SKIP_N_SLICER(13, MZ_0_TO_7, 8, 9, 10, 11, 12, 13);
+		MAKE_SKIP_N_SLICER(14, MZ_0_TO_7, 8, 9, 10, 11, 12, 13, 14);
 		MAKE_SKIP_N_SLICER(15, MZ_0_TO_15);
 		MAKE_SKIP_N_SLICER(16, MZ_0_TO_15, 16);
-	#endif
-	#if MZ_TYPE_LIST_OPT_COUNT > 16
+		#endif
+		#if MZ_TYPE_LIST_PAGE_SIZE > 16
 		MAKE_SKIP_N_SLICER(17, MZ_0_TO_15, 16, 17);
 		MAKE_SKIP_N_SLICER(18, MZ_0_TO_15, 16, 17, 18);
 		MAKE_SKIP_N_SLICER(19, MZ_0_TO_15, 16, 17, 18, 19);
@@ -886,8 +952,8 @@ namespace mz
 		MAKE_SKIP_N_SLICER(30, MZ_0_TO_15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30);
 		MAKE_SKIP_N_SLICER(31, MZ_0_TO_31);
 		MAKE_SKIP_N_SLICER(32, MZ_0_TO_31, 32);
-	#endif
-	#if MZ_TYPE_LIST_OPT_COUNT > 32
+		#endif
+		#if MZ_TYPE_LIST_PAGE_SIZE > 32
 		MAKE_SKIP_N_SLICER(33, MZ_0_TO_31, 32, 33);
 		MAKE_SKIP_N_SLICER(34, MZ_0_TO_31, 32, 33, 34);
 		MAKE_SKIP_N_SLICER(35, MZ_0_TO_31, 32, 33, 34, 35);
@@ -904,8 +970,8 @@ namespace mz
 		MAKE_SKIP_N_SLICER(46, MZ_0_TO_31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46);
 		MAKE_SKIP_N_SLICER(47, MZ_0_TO_47);
 		MAKE_SKIP_N_SLICER(48, MZ_0_TO_47, 48);
-	#endif
-	#if MZ_TYPE_LIST_OPT_COUNT > 48
+		#endif
+		#if MZ_TYPE_LIST_PAGE_SIZE > 48
 		MAKE_SKIP_N_SLICER(49, MZ_0_TO_47, 48, 49);
 		MAKE_SKIP_N_SLICER(50, MZ_0_TO_47, 48, 49, 50);
 		MAKE_SKIP_N_SLICER(51, MZ_0_TO_47, 48, 49, 50, 51);
@@ -922,10 +988,11 @@ namespace mz
 		MAKE_SKIP_N_SLICER(62, MZ_0_TO_47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62);
 		MAKE_SKIP_N_SLICER(63, MZ_0_TO_63);
 		MAKE_SKIP_N_SLICER(64, MZ_0_TO_63, 64);
-	#endif
+		#endif
 
-	#undef MAKE_SKIP_N_SLICER_1
-	#undef MAKE_SKIP_N_SLICER
+		#undef MAKE_SKIP_N_SLICER_1
+		#undef MAKE_SKIP_N_SLICER
+	#endif
 
 #endif // !MZ_HAS_TYPE_PACK_ELEMENT
 
@@ -937,14 +1004,11 @@ namespace mz
 	{
 		static constexpr size_t length = 0;
 
-		// select and slice are clearly nonsensical in this case
-		// but templates will break if they're not here
-
+		// these are clearly nonsense but needed for templates to not cause substitution failure
 		template <size_t Index>
 		using select = typename impl::type_list_selector_<type_list<>, Index>::type;
-
 		template <size_t Start, size_t Length = (length - Start)>
-		using slice = typename impl::type_list_slicer_<type_list<>, Start, Length>::type;
+		using slice = type_list<>;
 	};
 
 	template <typename T>
@@ -987,7 +1051,8 @@ namespace mz
 	};
 }
 
-#undef MZ_TYPE_LIST_OPT_COUNT
+#undef MZ_TYPE_LIST_PAGE_SIZE
+#undef MZ_HAS_JUMBO_PAGES
 #undef MZ_HAS_TYPE_PACK_ELEMENT
 #undef MZ_EMPTY_BASES
 
@@ -1070,6 +1135,7 @@ namespace mz
 #undef MZ_CONCAT
 #undef MZ_MAKE_INDEXED_TPARAM
 #undef MZ_MAKE_INDEXED_TARG
+#undef MZ_0_TO_7
 #undef MZ_0_TO_15
 #undef MZ_0_TO_31
 #undef MZ_0_TO_47

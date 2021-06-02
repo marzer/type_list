@@ -20,4 +20,7 @@
       <Filter>include</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="meson_options.txt" />
+  </ItemGroup>
 </Project>

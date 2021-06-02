@@ -69,5 +69,8 @@
   <ItemGroup>
     <ClInclude Include="include\mz\type_list.h" />
   </ItemGroup>
+  <ItemGroup>
+    <Text Include="meson_options.txt" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

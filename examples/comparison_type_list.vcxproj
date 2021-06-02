@@ -22,7 +22,7 @@
     <VCProjectVersion>16.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{22a3fbf8-a910-441e-9c70-19afb3c9af5e}</ProjectGuid>
-    <RootNamespace>mg</RootNamespace>
+    <RootNamespace>mz</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
     <PreferredToolArchitecture>x64</PreferredToolArchitecture>
   </PropertyGroup>
@@ -66,7 +66,12 @@
     <None Include="meson.build" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="comparison_with_std_tuple.cpp" />
+    <ClInclude Include="comparison_adapters.h" />
+    <ClInclude Include="comparison_adapter_std_tuple.h" />
+    <ClInclude Include="comparison_adapter_type_list.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="comparison_main.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>
