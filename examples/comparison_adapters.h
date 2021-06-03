@@ -12,6 +12,7 @@
 #else
 	#include "comparison_adapter_type_list.h"
 #endif
+#include <utility>
 
 namespace mz
 {

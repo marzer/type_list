@@ -4,8 +4,7 @@
 // SPDX-License-Identifier: MIT
 
 #pragma once
-#include <cstdint>
-#include <utility>
+#include <cstddef>
 
 #if !defined(MZ_TYPE_LIST_PAGE_SIZE) || MZ_TYPE_LIST_PAGE_SIZE <= 0 || MZ_TYPE_LIST_PAGE_SIZE > 64
 	#undef MZ_TYPE_LIST_PAGE_SIZE
@@ -31,6 +30,17 @@
 	#ifndef MZ_HAS_TYPE_PACK_ELEMENT
 		#define MZ_HAS_TYPE_PACK_ELEMENT 0
 	#endif
+#endif
+
+#ifndef MZ_HAS_INTEGER_SEQ
+	#if defined(__clang__) || defined(_MSC_VER)
+		#define MZ_HAS_INTEGER_SEQ 1
+	#else
+		#define MZ_HAS_INTEGER_SEQ 0
+	#endif
+#endif
+#if !MZ_HAS_INTEGER_SEQ
+	#include <utility>
 #endif
 
 #ifdef _MSC_VER
@@ -419,6 +429,19 @@ namespace mz
 		inline constexpr size_t type_list_jumbo_page_size = static_cast<size_t>(-1);
 #endif
 
+#if MZ_HAS_INTEGER_SEQ
+		template <typename T, T... Vals>
+		struct integer_sequence
+		{};
+		template <size_t... Vals>
+		using index_sequence = integer_sequence<size_t, Vals...>;
+		template <size_t Size>
+		using make_index_sequence = __make_integer_seq<integer_sequence, size_t, Size>;
+#else
+		using std::index_sequence;
+		using std::make_index_sequence;
+#endif
+
 		enum class type_list_selector_spec : int
 		{
 			first,
@@ -477,7 +500,7 @@ namespace mz
 			{                                                                                                          \
 				using type = T##N;                                                                                     \
 			}
-		#define MAKE_SELECTOR(...) MAKE_SELECTOR_1(__VA_ARGS__)
+		#define MAKE_SELECTOR(...) MZ_FOR_EACH_FORCE_UNROLL(MAKE_SELECTOR_1(__VA_ARGS__))
 
 		template <typename T0, typename T1, typename... T>
 		struct type_list_selector_<type_list<T0, T1, T...>, 1, type_list_selector_spec::low_index>
@@ -607,13 +630,13 @@ namespace mz
 		template <typename, size_t, typename>
 		struct type_list_index_sequence_slicer_;
 		template <typename List, size_t Start, size_t... Seq>
-		struct type_list_index_sequence_slicer_<List, Start, std::index_sequence<Seq...>>
+		struct type_list_index_sequence_slicer_<List, Start, index_sequence<Seq...>>
 		{
 			using type = type_list<typename List::template select<Start + Seq>...>;
 		};
 		template <typename List, size_t Start, size_t Length>
 		struct MZ_EMPTY_BASES type_list_slicer_<List, Start, Length, type_list_slicer_spec::arbitrary_range>
-			: type_list_index_sequence_slicer_<List, Start, std::make_index_sequence<Length>>
+			: type_list_index_sequence_slicer_<List, Start, make_index_sequence<Length>>
 		{};
 
 		// slicer - first element
@@ -714,7 +737,7 @@ namespace mz
 			{                                                                                                          \
 				using type = type_list<T##N>;                                                                          \
 			}
-		#define MAKE_SINGLE_ELEMENT_SLICER(...) MAKE_SINGLE_ELEMENT_SLICER_1(__VA_ARGS__)
+		#define MAKE_SINGLE_ELEMENT_SLICER(...) MZ_FOR_EACH_FORCE_UNROLL(MAKE_SINGLE_ELEMENT_SLICER_1(__VA_ARGS__))
 
 		template <typename T0, typename T1, typename... T>
 		struct type_list_slicer_<type_list<T0, T1, T...>, 1, 1, type_list_slicer_spec::single_low_index>
@@ -808,7 +831,7 @@ namespace mz
 			{                                                                                                          \
 				using type = type_list<T0 MZ_FOR_EACH(MZ_MAKE_INDEXED_TARG, __VA_ARGS__)>;                             \
 			}
-		#define MAKE_PREFIX_SLICER(...) MAKE_PREFIX_SLICER_1(__VA_ARGS__)
+		#define MAKE_PREFIX_SLICER(...) MZ_FOR_EACH_FORCE_UNROLL(MAKE_PREFIX_SLICER_1(__VA_ARGS__))
 
 		template <typename T0, typename T1, typename... T>
 		struct type_list_slicer_<type_list<T0, T1, T...>, 0, 2, type_list_slicer_spec::prefix>
@@ -905,7 +928,7 @@ namespace mz
 			{                                                                                                          \
 				using type = typename type_list<T##N, T...>::template slice<0, Length>;                                \
 			}
-		#define MAKE_SKIP_N_SLICER(...) MAKE_SKIP_N_SLICER_1(__VA_ARGS__)
+		#define MAKE_SKIP_N_SLICER(...) MZ_FOR_EACH_FORCE_UNROLL(MAKE_SKIP_N_SLICER_1(__VA_ARGS__))
 
 		template <typename T0, typename T1, typename... T, size_t Length>
 		struct type_list_slicer_<type_list<T0, T1, T...>, 1, Length, type_list_slicer_spec::skip_first_N>
@@ -1054,6 +1077,7 @@ namespace mz
 #undef MZ_TYPE_LIST_PAGE_SIZE
 #undef MZ_HAS_JUMBO_PAGES
 #undef MZ_HAS_TYPE_PACK_ELEMENT
+#undef MZ_HAS_INTEGER_SEQ
 #undef MZ_EMPTY_BASES
 
 #undef MZ_FOR_EACH_FORCE_UNROLL
