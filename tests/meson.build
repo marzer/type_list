@@ -3,8 +3,11 @@
 # See https://github.com/marzer/type_list/blob/master/LICENSE for the full license text.
 # SPDX-License-Identifier: MIT
 
-include_dir = include_directories('.')
+test_exe = executable(
+	'test_exe',
+	files('main.cpp'),
+	dependencies: [ type_list_dep ],
+	install: false
+)
 
-if not meson.is_subproject()
-	install_subdir('mz', install_dir: get_option('includedir'))
-endif
+test('test', test_exe)

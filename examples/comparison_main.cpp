@@ -2,13 +2,13 @@
 // Copyright (c) Mark Gillard <mark.gillard@outlook.com.au>
 // See https://github.com/marzer/type_list/blob/master/LICENSE for the full license text.
 // SPDX-License-Identifier: MIT
-
+//
 // this was the test code used in the 'Compilation speed humps: std::tuple' write-up
 // (https://marzer.github.io/md_blog_2021_05_31_compilation_speed_humps_std_tuple.html)
 
 #include <cstdint>
 #include <cstdio>
-#include "comparison_adapters.h"
+#include "comparison_adapters.hpp"
 
 namespace mz
 {
@@ -88,11 +88,7 @@ int main()
 												 : slice_start + slice_length;
 
 				using slice = type_list_slice<types, slice_start, slice_end - slice_start>;
-				for_sequence<type_list_length<slice>>(
-					[](auto idx)
-					{
-						std::printf("%zu\n", decltype(idx)::value);
-					});
+				for_sequence<type_list_length<slice>>([](auto idx) { std::printf("%zu\n", decltype(idx)::value); });
 			});
 	}
 #endif

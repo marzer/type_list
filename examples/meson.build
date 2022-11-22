@@ -1,45 +1,30 @@
+# This file is a part of marzer/type_list and is subject to the the terms of the MIT license.
+# Copyright (c) Mark Gillard <mark.gillard@outlook.com.au>
+# See https://github.com/marzer/type_list/blob/master/LICENSE for the full license text.
+# SPDX-License-Identifier: MIT
 
-compiler = meson.get_compiler('cpp')
-is_clang = compiler.get_id() == 'clang'
+cpp = meson.get_compiler('cpp')
 
 example_args = []
-if is_clang
-	clang_major = '@0@'.format(compiler.version()).split('.')[0].strip().to_int()
-	if clang_major >= 9
-		example_args += [ '-ftime-trace' ]
-	endif
-endif
+example_args += cpp.first_supported_argument('-ftime-trace')
 
+example_overrides = []
 example_overrides = [ 'warning_level=0' ]
-compiler_supports_cpp20 = compiler.links(
-	'''
-	#include <version>
-	#include <bit>
-
-	int main()
-	{
-		return 0;
-	}
-	''',
-	name : 'supports c++20',
-	args : [ '-std=c++20' ],
-	no_builtin_args : true
-)
-# if compiler_supports_cpp20
-# 	example_overrides += 'cpp_std=none'
-# 	example_args += '-std=c++20'
-# endif
-
-name = 'comparsion_type_list'
-if get_option('use_tuple')
-	name = 'comparsion_tuple'
-	example_args += [ '-DUSE_STD_TUPLE=1' ]
-endif
 
 executable(
-	name,
+	'comparsion_type_list',
 	[ 'comparison_main.cpp' ],
-	include_directories : inc,
-	cpp_args : example_args,
-	override_options: example_overrides
+	cpp_args : example_args + [ '-DUSE_STD_TUPLE=0' ],
+	override_options: example_overrides,
+	dependencies: [ type_list_dep ],
+	install: false
+)
+
+executable(
+	'comparsion_tuple',
+	[ 'comparison_main.cpp' ],
+	cpp_args : example_args + [ '-DUSE_STD_TUPLE=1' ],
+	override_options: example_overrides,
+	dependencies: [ type_list_dep ],
+	install: false
 )

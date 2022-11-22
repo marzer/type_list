@@ -2,8 +2,8 @@
 // Copyright (c) Mark Gillard <mark.gillard@outlook.com.au>
 // See https://github.com/marzer/type_list/blob/master/LICENSE for the full license text.
 // SPDX-License-Identifier: MIT
-
 #pragma once
+
 #include <tuple>
 
 namespace mz
@@ -14,7 +14,7 @@ namespace mz
 	using type_list = std::tuple<T...>;
 
 	template <typename List, size_t Index>
-	using type_list_select = std::tuple_element_t<Index, List>;
+	using type_list_select = typename std::tuple_element<Index, List>::type;
 
 	namespace impl
 	{

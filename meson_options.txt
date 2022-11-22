@@ -1,1 +1,2 @@
-option('use_tuple',			type: 'boolean',	value: false,	description: 'Use std::tuple instead of the type_list when building the comparison example.')
+option('build_tests',			type: 'boolean', value: true,	description: 'Build tests')
+option('build_examples',		type: 'boolean', value: true,	description: 'Build examples')

@@ -1,24 +1,29 @@
+# This file is a part of marzer/type_list and is subject to the the terms of the MIT license.
+# Copyright (c) Mark Gillard <mark.gillard@outlook.com.au>
+# See https://github.com/marzer/type_list/blob/master/LICENSE for the full license text.
+# SPDX-License-Identifier: MIT
+
 project(
 	'type_list',
 	'cpp',
-	version : '0.1.0',
-	meson_version : '>=0.53.0',
+	version : '1.0.0',
+	meson_version : '>=0.60.0',
 	license : 'MIT',
-	default_options : [ # https://mesonbuild.com/Builtin-options.html
-		# core options
-		'buildtype=release',
-		'warning_level=3',
-		'werror=true',
-		'layout=flat',
-
-		# base options
-		'b_lto=false',
-		'b_ndebug=if-release',
-
-		# compiler options
-		'cpp_std=c++11'
-	]
+	default_options : [ 'cpp_std=c++17' ]
 )
 
 subdir('include')
-subdir('examples')
+
+type_list_dep = declare_dependency(
+    include_directories: include_dir
+)
+
+if not meson.is_subproject() and get_option('build_examples')
+	subdir('examples')
+endif
+
+if not meson.is_subproject() and get_option('build_tests')
+	subdir('tests')
+endif
+
+

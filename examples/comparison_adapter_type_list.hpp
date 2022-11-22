@@ -2,16 +2,9 @@
 // Copyright (c) Mark Gillard <mark.gillard@outlook.com.au>
 // See https://github.com/marzer/type_list/blob/master/LICENSE for the full license text.
 // SPDX-License-Identifier: MIT
-
 #pragma once
 
-// uncomment to disable use of __type_pack_element on clang
-//#define MZ_HAS_TYPE_PACK_ELEMENT 0
-
-// uncomment to disable use of jumbo paging
-//#define MZ_HAS_JUMBO_PAGES 0
-
-#include <mz/type_list.h>
+#include <mz/type_list.hpp>
 
 namespace mz
 {

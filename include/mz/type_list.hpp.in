@@ -1,0 +1,51 @@
+//----------------------------------------------------------------------------------------------------------------------
+//
+// type_list.hpp
+// https://github.com/marzer/type_list
+// SPDX-License-Identifier: MIT
+//
+//----------------------------------------------------------------------------------------------------------------------
+//% generated_header_preamble
+//----------------------------------------------------------------------------------------------------------------------
+#ifndef MZ_TYPE_LIST_HPP
+#define MZ_TYPE_LIST_HPP
+
+#define MZ_TYPE_LIST_VERSION_MAJOR 1
+#define MZ_TYPE_LIST_VERSION_MINOR 0
+#define MZ_TYPE_LIST_VERSION_PATCH 0
+
+//% preprocessor::concat
+//% preprocessor::clang
+//% preprocessor::msvc_like
+//% preprocessor::has_builtin
+//% preprocessor::for_each
+//% preprocessor::count_va_args
+//% preprocessor::comma
+//% preprocessor::declspec
+//% preprocessor::empty_bases
+
+//% type_list::header
+
+#include <cstddef>
+
+#if 1
+namespace mz
+{
+	//% meta::always_false guarded
+	//% meta::index_of_type guarded
+
+	template <typename... T>
+	struct type_list;
+
+	namespace detail
+	{
+		//% type_list::detail
+	}
+
+	//% type_list
+}
+#endif
+
+//% type_list::footer
+
+#endif // MZ_TYPE_LIST_HPP

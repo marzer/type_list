@@ -1,0 +1,35 @@
+{
+	"prettier.useTabs": true,
+	"prettier.tabWidth": 4,
+	"editor.rulers": [120],
+	"editor.formatOnSave": true,
+	"files.eol": "\n",
+	"python.formatting.provider": "yapf",
+	"html.format.indentInnerHtml": true,
+	"files.exclude": {
+		"**/__pycache__": true,
+		"**/build": true,
+		"**/*.egg-info": true
+	},
+	"[cpp]": {
+		"editor.formatOnSave": true
+	},
+	"mesonbuild.configureOnOpen": false,
+	"files.associations": {
+		"bit": "cpp",
+		"compare": "cpp",
+		"concepts": "cpp",
+		"cstddef": "cpp",
+		"cstdint": "cpp",
+		"cstdio": "cpp",
+		"cstdlib": "cpp",
+		"cwchar": "cpp",
+		"initializer_list": "cpp",
+		"limits": "cpp",
+		"tuple": "cpp",
+		"type_traits": "cpp",
+		"utility": "cpp",
+		"xstddef": "cpp",
+		"xtr1common": "cpp"
+	}
+}
