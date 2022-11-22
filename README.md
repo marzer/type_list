@@ -1,6 +1,6 @@
 # `mz::type_list` [![MIT license](docs/images/badge-license-MIT.svg)](./LICENSE) [![C++17](docs/images/badge-c++17.svg)][cpp_compilers] [![Sponsor](docs/images/badge-sponsor.svg)][sponsor] [![Gitter](docs/images/badge-gitter.svg)][gitter]
 
-A variadic 'type list' optimized to be much more compiler-friendly than `std::tuple`, and more useful to boot.
+A variadic 'type list' for performing operations on lists of types in metaprogramming contexts. Optimized to be much more compiler-friendly than `std::tuple`.
 
 See [Compilation speed humps: std::tuple](https://marzer.github.io/md_blog_2021_05_31_compilation_speed_humps_std_tuple.html) for a write-up on the sorts of optimizations applied herein.
 
@@ -34,7 +34,7 @@ namespace mz
 		using type = select<0>;
 
 		// get a 'slice' (sublist):
-		template <size_t SliceStart, size_t SliceLength = (length - SliceStart)>
+		template <size_t Start, size_t Length = (length - Start)>
 		using slice = type_list</* ... */>;
 
 		// adding on to the list:
@@ -87,10 +87,15 @@ MIT. See [LICENSE](LICENSE).
 
 ## Contributing
 
-`type_list.hpp` is programatically extracted from a much larger project so I won't accept pull on against this
-repository directly; if you wish to contribute a bugfix or a feature, please find the type_list implementation
-[in this project](https://github.com/marzer/muu) and make your changes there instead. I will then propagate them to
-this satellite library.
+There are three ways you can contribute:
+
+1. Reporting bug or making feature requests [here](https://github.com/marzer/type_list/issues/new)
+2. Opening a pull request (⚠&#xFE0F; _caveat - see below_)
+3. Becoming a [sponsor] ❤&#xFE0F;
+
+### Pull requests
+
+`type_list.hpp` is programmatically extracted from a much larger project so I won't accept pull requests made for this repository directly; if you wish to contribute a bugfix or a feature, please find the type_list implementation [in this project](https://github.com/marzer/muu) and propose your changes there instead. I will then propagate them to this satellite library when they are merged.
 
 [type_list.hpp]: include/mz/type_list.hpp
 [license]: ./LICENSE
