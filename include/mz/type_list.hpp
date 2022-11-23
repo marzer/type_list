@@ -1,12 +1,12 @@
 //----------------------------------------------------------------------------------------------------------------------
 //
-// type_list.hpp
+// mz::type_list
 // https://github.com/marzer/type_list
 // SPDX-License-Identifier: MIT
 //
 //----------------------------------------------------------------------------------------------------------------------
 //         THIS FILE WAS ASSEMBLED FROM MULTIPLE HEADER FILES BY A SCRIPT - PLEASE DON'T EDIT IT DIRECTLY
-//                              upstream: 1bc959900fe60fc9ff4cdb2f7e05199a323054bf
+//                              upstream: 2c7140f9e5c632ec99d2eb719e68739b7fc921ed
 //----------------------------------------------------------------------------------------------------------------------
 //
 // MIT License
@@ -333,9 +333,12 @@
 
 #include <cstddef>
 
-#if 1
 namespace mz
 {
+	using std::size_t;
+
+#if 1
+
 	#ifndef MZ_HAS_SNIPPET_META_ALWAYS_FALSE
 		#define MZ_HAS_SNIPPET_META_ALWAYS_FALSE
 
@@ -370,8 +373,13 @@ namespace mz
 
 	#endif // MZ_HAS_SNIPPET_META_INDEX_OF_TYPE
 
+#endif
+
 	template <typename... T>
 	struct type_list;
+
+#ifndef MZ_HAS_SNIPPET_TYPE_LIST
+	#define MZ_HAS_SNIPPET_TYPE_LIST
 
 	namespace detail
 	{
@@ -1033,8 +1041,7 @@ namespace mz
 
 		template <typename R, typename... T>
 		using type_list_remove = typename type_list_concatenate_<typename type_list_remove_<R, T>::types...>::types;
-
-	}
+	} // ::detail
 
 	template <>
 	struct type_list<>
@@ -1125,8 +1132,9 @@ namespace mz
 	template <typename T>
 	using type_tag = type_list<T>;
 
+#endif // MZ_HAS_SNIPPET_TYPE_LIST
+
 }
-#endif
 
 #undef MZ_TYPE_LIST_PAGE_SIZE
 #undef MZ_TYPE_LIST_HAS_JUMBO_PAGES

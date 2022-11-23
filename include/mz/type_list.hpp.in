@@ -1,6 +1,6 @@
 //----------------------------------------------------------------------------------------------------------------------
 //
-// type_list.hpp
+// mz::type_list
 // https://github.com/marzer/type_list
 // SPDX-License-Identifier: MIT
 //
@@ -28,23 +28,20 @@
 
 #include <cstddef>
 
-#if 1
 namespace mz
 {
-	//% meta::always_false guarded
-	//% meta::index_of_type guarded
+	using std::size_t;
+
+	#if 1
+	//% meta::always_false	guarded
+	//% meta::index_of_type	guarded
+	#endif
 
 	template <typename... T>
 	struct type_list;
 
-	namespace detail
-	{
-		//% type_list::detail
-	}
-
-	//% type_list
+	//% type_list guarded
 }
-#endif
 
 //% type_list::footer
 
