@@ -1,18 +1,18 @@
 //----------------------------------------------------------------------------------------------------------------------
 //
-// mz::type_list
+// {% namespaces::main %}::type_list
 // https://github.com/marzer/type_list
 // SPDX-License-Identifier: MIT
 //
 //----------------------------------------------------------------------------------------------------------------------
 //% generated_header_preamble
 //----------------------------------------------------------------------------------------------------------------------
-#ifndef MZ_TYPE_LIST_HPP
-#define MZ_TYPE_LIST_HPP
+#ifndef {% macros::prefix %}TYPE_LIST_HPP
+#define {% macros::prefix %}TYPE_LIST_HPP
 
-#define MZ_TYPE_LIST_VERSION_MAJOR 1
-#define MZ_TYPE_LIST_VERSION_MINOR 0
-#define MZ_TYPE_LIST_VERSION_PATCH 0
+#define {% macros::prefix %}TYPE_LIST_VERSION_MAJOR 1
+#define {% macros::prefix %}TYPE_LIST_VERSION_MINOR 0
+#define {% macros::prefix %}TYPE_LIST_VERSION_PATCH 0
 
 //% preprocessor::concat
 //% preprocessor::clang
@@ -28,7 +28,7 @@
 
 #include <cstddef>
 
-namespace mz
+namespace {% namespaces::main %}
 {
 	using std::size_t;
 
@@ -45,4 +45,4 @@ namespace mz
 
 //% type_list::footer
 
-#endif // MZ_TYPE_LIST_HPP
+#endif // {% macros::prefix %}TYPE_LIST_HPP
