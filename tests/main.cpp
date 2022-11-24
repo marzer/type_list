@@ -126,6 +126,15 @@ static_assert(std::is_same_v<type_list<int, char>::append<void>, //
 static_assert(std::is_same_v<type_list<int, float, double>::append<bool, char, void>, //
 							 type_list<int, float, double, bool, char, void>>);
 
+static_assert(std::is_same_v<type_list<>::prepend<void>, //
+							 type_list<void>>);
+static_assert(std::is_same_v<type_list<int>::prepend<void>, //
+							 type_list<void, int>>);
+static_assert(std::is_same_v<type_list<int, char>::prepend<void>, //
+							 type_list<void, int, char>>);
+static_assert(std::is_same_v<type_list<int, float, double>::prepend<bool, char, void>, //
+							 type_list<bool, char, void, int, float, double>>);
+
 int main()
 {
 	return 0;

@@ -14,9 +14,10 @@
 #define {% macros::prefix %}TYPE_LIST_VERSION_MINOR 0
 #define {% macros::prefix %}TYPE_LIST_VERSION_PATCH 0
 
+//% preprocessor::compilers::clang
+//% preprocessor::compilers::msvc_like
+
 //% preprocessor::concat
-//% preprocessor::clang
-//% preprocessor::msvc_like
 //% preprocessor::has_builtin
 //% preprocessor::for_each
 //% preprocessor::count_va_args

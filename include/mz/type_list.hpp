@@ -6,7 +6,7 @@
 //
 //----------------------------------------------------------------------------------------------------------------------
 //         THIS FILE WAS ASSEMBLED FROM MULTIPLE HEADER FILES BY A SCRIPT - PLEASE DON'T EDIT IT DIRECTLY
-//                              upstream: 2c7140f9e5c632ec99d2eb719e68739b7fc921ed
+//                              upstream: d4f4231c4ba2dbeca6149adf84242d0ef75f94eb
 //----------------------------------------------------------------------------------------------------------------------
 //
 // MIT License
@@ -35,12 +35,6 @@
 #define MZ_TYPE_LIST_VERSION_MINOR 0
 #define MZ_TYPE_LIST_VERSION_PATCH 0
 
-#ifndef MZ_CONCAT
-	#define MZ_CONCAT_2(x, y) x##y
-	#define MZ_CONCAT_1(x, y) MZ_CONCAT_2(x, y)
-	#define MZ_CONCAT(x, y)	  MZ_CONCAT_1(x, y)
-#endif
-
 #ifndef MZ_CLANG
 	#ifdef __clang__
 		#define MZ_CLANG __clang_major__
@@ -55,6 +49,12 @@
 	#else
 		#define MZ_MSVC_LIKE 0
 	#endif
+#endif
+
+#ifndef MZ_CONCAT
+	#define MZ_CONCAT_2(x, y) x##y
+	#define MZ_CONCAT_1(x, y) MZ_CONCAT_2(x, y)
+	#define MZ_CONCAT(x, y)	  MZ_CONCAT_1(x, y)
 #endif
 
 #ifndef MZ_HAS_BUILTIN
@@ -1066,6 +1066,9 @@ namespace mz
 
 		template <typename... U>
 		using append = type_list<U...>;
+
+		template <typename... U>
+		using prepend = type_list<U...>;
 	};
 
 	template <typename T>
@@ -1097,6 +1100,9 @@ namespace mz
 
 		template <typename... U>
 		using append = type_list<T, U...>;
+
+		template <typename... U>
+		using prepend = type_list<U..., T>;
 	};
 
 	template <typename T0, typename... T>
@@ -1127,6 +1133,9 @@ namespace mz
 
 		template <typename... U>
 		using append = type_list<T0, T..., U...>;
+
+		template <typename... U>
+		using prepend = type_list<U..., T0, T...>;
 	};
 
 	template <typename T>

@@ -25,7 +25,7 @@ namespace mz
 
 		// get a specific type:
 		template <size_t Index>
-		using select = /* ... */;
+		using select = /* T...[Index] */;
 
 		// convenience alias for select<0>:
 		using first = select<0>;
@@ -37,16 +37,20 @@ namespace mz
 		template <size_t Start, size_t Length = (length - Start)>
 		using slice = type_list</* ... */>;
 
-		// adding on to the list:
+		// adding on to the beginning of the list:
+		template <typename... U>
+		using prepend = type_list<U..., T...>;
+
+		// adding on to the end of the list:
 		template <typename... U>
 		using append = type_list<T..., U...>;
 
 		// recursively flatten child sublists:
-		using flatten = /* ... */;
+		using flatten = type_list</* ... */>;
 
 		// remove all occurrences of the specified type:
 		template <typename U>
-		using remove = /* ... */;
+		using remove = type_list</* ... */>;
 	};
 
 	// alias for a single-element list:
@@ -59,7 +63,7 @@ namespace mz
 
 ## Usage
 
-The library is a single-header so the easiest way to use it is to drop [type_list.hpp] somewhere in your project.
+The library is a single header so the easiest way to use it is to drop [type_list.hpp] somewhere in your project.
 
 Alternatively you can add `include` to your include paths then `#include <mz/type_list.hpp>`
 
