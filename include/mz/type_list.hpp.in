@@ -28,6 +28,7 @@
 //% type_list::header
 
 #include <cstddef>
+#include <type_traits>
 
 namespace {% namespaces::main %}
 {

@@ -6,7 +6,7 @@
 //
 //----------------------------------------------------------------------------------------------------------------------
 //         THIS FILE WAS ASSEMBLED FROM MULTIPLE HEADER FILES BY A SCRIPT - PLEASE DON'T EDIT IT DIRECTLY
-//                              upstream: cb01c745002a484615f0d9c09a428996f4aa8968
+//                              upstream: 1fc3b2a8eb1d7a2c0757cce8ef34cd55ad97280c
 //----------------------------------------------------------------------------------------------------------------------
 //
 // MIT License
@@ -332,6 +332,7 @@
 #define MZ_0_TO_63				  MZ_0_TO_47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63
 
 #include <cstddef>
+#include <type_traits>
 
 namespace mz
 {
@@ -1060,6 +1061,9 @@ namespace mz
 		template <typename U>
 		static constexpr size_t index_of = static_cast<size_t>(-1);
 
+		template <typename U>
+		static constexpr bool contains = false;
+
 		using flatten = type_list<>;
 
 		template <typename U>
@@ -1094,6 +1098,9 @@ namespace mz
 		template <typename U>
 		static constexpr size_t index_of = index_of_type<U, T>;
 
+		template <typename U>
+		static constexpr bool contains = std::is_same_v<U, T>;
+
 		using flatten = detail::type_list_flatten<T>;
 
 		template <typename U>
@@ -1126,6 +1133,9 @@ namespace mz
 
 		template <typename U>
 		static constexpr size_t index_of = index_of_type<U, T0, T...>;
+
+		template <typename U>
+		static constexpr bool contains = (std::is_same_v<U, T0> || ... || std::is_same_v<U, T>);
 
 		using flatten = detail::type_list_flatten<T0, T...>;
 
