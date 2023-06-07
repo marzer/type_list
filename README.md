@@ -23,6 +23,10 @@ namespace mz
 		template <typename U>
 		static constexpr size_t index_of = /* ... */;
 
+		// determine if a specified type appears in the list:
+		template <typename U>
+		static constexpr bool contains = /* ... */;
+
 		// get a specific type:
 		template <size_t Index>
 		using select = /* T...[Index] */;
