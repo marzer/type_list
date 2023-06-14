@@ -123,6 +123,7 @@ PenaltyExcessCharacter: 1000000
 PenaltyReturnTypeOnItsOwnLine: 1000000
 PenaltyIndentedWhitespace: 0
 PointerAlignment: Left
+QualifierAlignment: Leave
 ReflowComments: true
 SortIncludes: false
 SortJavaStaticImport: Before
